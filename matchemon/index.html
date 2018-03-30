@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+
+    <body onload="initGame('canvas');"> 
+    <canvas id='mygame' width='800' height='800'></canvas>
+    </body>
+        
+    <script>
+    /*Andy Wang
+    CMPM 120, HW 1
+    This game pits the player against various Pokemon.
+    Drag and drop Pokemon of your choice to the battle ground and hit shift to gain exp.
+    Recommended: Press shift with pauses in between.
+    Not optimized at all... lol
+    Most offline links are commented out; glitches occur
+    */
+
+    var canvas = document.getElementById("mygame");
+    var context = canvas.getContext("2d");
+    var badCount = 0; //used for enemy sprite calculations
+
+    /*
+    Intialize essential variables and arrays
+    */
+    var inst1 = "Drag and drop your Pokemon to the field below, and press shift to fight gain & exp."
+    var inst2 = "Reach certain levels and evolve your Pokemon with the evolution stones on the right. \n";
+
+    //does the battle start
+    var fite = false;
+
+    //array that holds pokemon names
+    var names = new Array();
+    names.push('Bulbasaur');
+    names.push('Ivysaur');
+    names.push('Venasaur');
+    names.push("Charmander");
+    names.push("Charmeleon");
+    names.push("Charizard");
+    names.push('Squirtle');
+    names.push('Wartortle');
+    names.push('Blastoise');
+    names.push('Pikachu');
+    names.push('Raichu');
+
+    //array that holds the backgrounds to be used
+    //0 to 2 are used for home
+    //3 is for battle
+    var bgSrc = new Array();
+    
+    //bgSrc.push('https://www.dropbox.com/s/zt5nhdvkxskksoa/bg.png?dl=1');
+    bgSrc.push('imgs/bg.png');
+    
+    //bgSrc.push('https://www.dropbox.com/s/2iatid9hkzn43wb/battleBg.png?dl=1');
+    bgSrc.push('imgs/battleBg.png');
+
+    //array that holds the links to the pokemon images to be used
+    var pokeSrc = new Array();
+    //bulbasaur 0
+        pokeSrc.push('https://www.dropbox.com/s/udtv1rs7cm63uef/001.gif?dl=1');
+        //pokeSrc.push('imgs/001.gif');
+    //charmander 1
+        pokeSrc.push('https://www.dropbox.com/s/p8me6ofax9814yf/004.gif?dl=1');
+        //pokeSrc.push('imgs/004.gif');
+    //squirtle 2
+        pokeSrc.push('https://www.dropbox.com/s/30bjlsri5l16ezy/007.gif?dl=1');
+        //pokeSrc.push('imgs/007.gif');
+    //pikachu 3
+        pokeSrc.push('https://www.dropbox.com/s/ka796709mnntlfl/025.gif?dl=1');
+        //pokeSrc.push('imgs/025.gif');
+    //ivysaur 4
+        pokeSrc.push('https://www.dropbox.com/s/16dq4t0gipzqwzo/002.gif?dl=1');
+        //pokeSrc.push('imgs/002.gif');
+    //venasaur 5
+        pokeSrc.push('https://www.dropbox.com/s/oy3hck1woo0eoms/003_1.gif?dl=1');
+        //pokeSrc.push('imgs/003.gif');
+    //charmeleon 6
+        pokeSrc.push('https://www.dropbox.com/s/hth3goeazftqcof/005.gif?dl=1');
+        //pokeSrc.push('imgs/005.gif');
+    //charizard 7
+        pokeSrc.push('https://www.dropbox.com/s/7r771xr5ide3byn/006.gif?dl=1');
+        //pokeSrc.push('imgs/006.gif');
+    //wartortle 8
+        pokeSrc.push('https://www.dropbox.com/s/jeubb4g8zpn9gb3/008.gif?dl=1');
+        //pokeSrc.push('imgs/008.gif');
+    //blastoise 9
+        pokeSrc.push('https://www.dropbox.com/s/1nkhqhz8u30r112/009.gif?dl=1');
+        //pokeSrc.push('imgs/009.gif');
+    //raichu 10
+        pokeSrc.push('https://www.dropbox.com/s/k0re6zj6s32fayn/026.gif?dl=1');
+        //pokeSrc.push('imgs/026.gif');
+
+    //array for enemy pokemon
+    var badSrc = new Array();
+    //metapod - base case
+        badSrc.push('https://www.dropbox.com/s/4d5r4lu6j8sw45q/enemy1.gif?dl=1');
+        //badSrc.push('imgs/enemy1.gif');
+
+    //array that links to evolution stones
+    var stoneSrc = new Array();
+
+    //firestone
+        //stoneSrc.push('https://www.dropbox.com/s/e3od445q5ibs8ie/firestone.png?dl=1');
+        stoneSrc.push('imgs/firestone.png');
+    //leafstone
+        //stoneSrc.push('https://www.dropbox.com/s/y1sexe11w2e9dem/leafstone.png?dl=1');
+        stoneSrc.push('imgs/leafstone.png');
+    //thunderstone
+        //stoneSrc.push('https://www.dropbox.com/s/bg6fqchz8woc90r/thunderstone.png?dl=1');
+        stoneSrc.push('imgs/thunderstone.png');
+    //waterstone
+        //stoneSrc.push('https://www.dropbox.com/s/i3wscsu87y5dcvz/waterstone.png?dl=1');
+        stoneSrc.push('imgs/waterstone.png');
+
+    //mouse input handlers
+    canvas.addEventListener('mousedown', handleClick);
+    canvas.addEventListener('mousemove', handleDrag);
+    canvas.addEventListener('mouseup', endDrag);
+
+    //keyboard input handlers
+    document.addEventListener("keydown", check1);
+    document.addEventListener("keyup", check2);
+
+    //if shift is pressed down
+    function check1(key) {
+        if (key.keyCode == 16) {
+            fite = true;
+        }
+    }
+
+    //if shift is let go
+    function check2(key) {
+        if (key.keyCode == 16) {
+            fite = false;
+        }
+    }
+
+    //bounding box function
+    function checkBounds(picture, x, y) {
+        if (x > picture.X && x < picture.X + picture.width && y > picture.Y && y < picture.height + picture.Y) {
+            return true;
+        }
+    }
+
+    //function to get real mouse pos
+    //referenced http://www.html5canvastutorials.com/advanced/html5-canvas-mouse-coordinates/
+    function getMousePos(canvas, param) {
+        var rect = canvas.getBoundingClientRect();
+        return {
+            x: param.clientX - rect.left,
+            y: param.clientY - rect.top
+        };
+    }
+
+    //mouse input function
+    function handleClick(param) {
+        var pos = getMousePos(canvas, param);
+        //bounding box
+        if (checkBounds(pokeA, pos.x, pos.y)) {
+            pokeA.drag = true;
+        } else if (checkBounds(pokeB, pos.x, pos.y)) {
+            pokeB.drag = true;
+        } else if (checkBounds(pokeC, pos.x, pos.y)) {
+            pokeC.drag = true;
+        } else if (checkBounds(pokeD, pos.x, pos.y)) {
+            pokeD.drag = true;
+        } else if (checkBounds(stoneA, pos.x, pos.y)) {
+            stoneA.drag = true;
+        } else if (checkBounds(stoneB, pos.x, pos.y)) {
+            stoneB.drag = true;
+        } else if (checkBounds(stoneC, pos.x, pos.y)) {
+            stoneC.drag = true;
+        } else if (checkBounds(stoneD, pos.x, pos.y)) {
+            stoneD.drag = true;
+        }
+    }
+
+    //Function that handles what happens during dragging
+    //If dragged to certain coordinates, battle!
+    function handleDrag(param) {
+        var pos = getMousePos(canvas, param);
+
+        //only drag one at a time
+        if (stoneA.drag == true) {
+            stoneA.X = pos.x - stoneA.width / 2;
+            stoneA.Y = pos.y - stoneA.height / 2;
+        }
+        if (stoneB.drag == true) {
+            stoneB.X = pos.x - stoneB.width / 2;
+            stoneB.Y = pos.y - stoneB.height / 2;
+        }
+        if (stoneC.drag == true) {
+            stoneC.X = pos.x - stoneC.width / 2;
+            stoneC.Y = pos.y - stoneC.height / 2;
+        }
+        if (stoneD.drag == true) {
+            stoneD.X = pos.x - stoneD.width / 2;
+            stoneD.Y = pos.y - stoneD.height / 2;
+        }
+        if (pokeA.drag == true) {
+            pokeA.X = pos.x - pokeA.width / 2;
+            pokeA.Y = pos.y - pokeA.height / 2;
+        }
+        if (pokeB.drag == true) {
+            pokeB.X = pos.x - pokeB.width / 2;
+            pokeB.Y = pos.y - pokeB.height / 2;
+        }
+        if (pokeC.drag == true) {
+            pokeC.X = pos.x - pokeC.width / 2;
+            pokeC.Y = pos.y - pokeC.height / 2;
+        }
+        if (pokeD.drag == true) {
+            pokeD.X = pos.x - pokeD.width / 2;
+            pokeD.Y = pos.y - pokeD.height / 2;
+        }
+
+    }
+
+
+    /*
+    Function checking and establishing conditions
+    uhhhhhhh
+    */
+
+    function checkCombo(img1, img2) {
+        //grass ev
+        if (stoneB.X < pokeA.X + pokeA.width && stoneB.X + stoneB.width > pokeA.X && stoneB.Y < pokeA.Y + pokeA.height && stoneB.Y + stoneB.height > pokeA.Y) {
+            pokeA.evolve = true;
+        }
+
+        //fire ev
+        if (stoneA.X < pokeB.X + pokeB.width && stoneA.X + stoneA.width > pokeB.X && stoneA.Y < pokeB.Y + pokeB.height && stoneA.Y + stoneA.height > pokeB.Y) {
+            pokeB.evolve = true;
+        }
+        //thunder ev
+        if (stoneC.X < pokeD.X + pokeD.width && stoneC.X + stoneC.width > pokeD.X && stoneD.Y < pokeD.Y + pokeD.height && stoneC.Y + img1.height > pokeD.Y) {
+            pokeD.evolve = true;
+        }
+        //water ev
+        if (stoneD.X < pokeC.X + pokeC.width && stoneD.X + stoneD.width > pokeC.X && stoneD.Y < pokeC.Y + pokeC.height && stoneD.Y + stoneD.height > pokeC.Y) {
+            pokeC.evolve = true;
+        }
+    }
+    
+    //Function that handles ending dragging
+    //Reset sprite coordinates
+    function endDrag(param) {
+        var pos = getMousePos(canvas, param);
+        //can we evolve lol
+        checkCombo(stoneA, pokeB);
+        checkCombo(stoneB, pokeA);
+        checkCombo(stoneC, pokeD);
+        checkCombo(stoneD, pokeC);
+
+        //Evolution
+        //check if fire evolution
+        if (pokeB.evolve) {
+            if (pokeB.src == pokeSrc[1] && pokeB.lv >= 16) {
+                pokeB.width += 20;
+                pokeB.height += 30;
+                pokeB.Y -= 30;
+                pokeB.src = pokeSrc[6];
+            } else if (pokeB.src == pokeSrc[6] && pokeB.lv >= 36) {
+                pokeB.width += 150;
+                pokeB.height += 150;
+                pokeB.Y -= 170;
+                pokeB.src = pokeSrc[7];
+            }
+            pokeB.evolve = false;
+        }
+
+        //check if grass evolution
+        if (pokeA.evolve) {
+            if (pokeA.src == pokeSrc[0] && pokeA.lv >= 16) {
+                pokeA.width += 50;
+                pokeA.height += 20;
+                pokeA.Y -= 20;
+                pokeA.src = pokeSrc[4];
+            } else if (pokeA.src == pokeSrc[4] && pokeA.lv >= 32) {
+                pokeA.width += 120;
+                pokeA.height += 75;
+                pokeA.Y -= 75;
+                pokeA.src = pokeSrc[5];
+            }
+            pokeA.evolve = false;
+        }
+
+        //check if thunder evolution
+        if (pokeD.evolve) {
+            if (pokeD.src == pokeSrc[3] && pokeD.lv >= 20) {
+                pokeD.width += 25;
+                pokeD.height += 70;
+                pokeD.Y -= 70;
+                pokeD.src = pokeSrc[10];
+            }
+            pokeD.evolve = false;
+        }
+
+        //check if water evolution
+        if (pokeC.evolve) {
+            if (pokeC.src == pokeSrc[2] && pokeC.lv >= 16) {
+                pokeC.width += 5;
+                pokeC.height += 20;
+                pokeC.Y -= 20;
+                pokeC.src = pokeSrc[8];
+            } else if (pokeC.src == pokeSrc[8] && pokeC.lv >= 36) {
+                pokeC.width += 90;
+                pokeC.height += 75;
+                pokeC.Y -= 75;
+                pokeC.src = pokeSrc[9];
+            }
+            pokeC.evolve = false;
+        }
+
+        //reset everything's coordinates if no event occurs
+        //stones
+        stoneA.drag = false;
+        stoneA.X = canvas.width - stoneA.width - 10;
+        stoneA.Y = 150;
+
+        stoneB.drag = false;
+        stoneB.X = stoneA.X;
+        stoneB.Y = stoneA.Y + 60;
+
+        stoneC.drag = false;
+        stoneC.X = stoneB.X;
+        stoneC.Y = stoneB.Y + 60;
+
+        stoneD.drag = false;
+        stoneD.X = stoneC.X;
+        stoneD.Y = stoneC.Y + 60;
+
+        //Pokemon
+        //reset with unique conditions based on current form
+        //hard coded
+        //if not in battle it's snapped to location in town
+        //if in battle snap to its respective platform
+
+        //
+        //bulbasaur + evos
+        //
+        pokeA.drag = false;
+        if (pokeA.battle == false) {
+            if (pokeA.src == pokeSrc[4]) {
+                pokeA.X = 80;
+                pokeA.Y = 230;
+            } else if (pokeA.src == pokeSrc[5]) {
+                pokeA.X = 80;
+                pokeA.Y = 155;
+            } else {
+                //bulbasaur
+                pokeA.X = 80;
+                pokeA.Y = 250;
+            }
+        }
+        //battle coordinates
+        else {
+            if (pokeA.src == pokeSrc[4]) {
+                pokeA.X = 550;
+                pokeA.Y = 570;
+            } else if (pokeA.src == pokeSrc[5]) {
+                pokeA.X = 480;
+                pokeA.Y = 495;
+            } else {
+                //bulbasaur
+                pokeA.X = 570;
+                pokeA.Y = 590;
+            }
+        }
+
+        //
+        //charmander + evos
+        //
+        pokeB.drag = false;
+        if (pokeB.battle == false) {
+            if (pokeB.src == pokeSrc[6]) {
+                pokeB.X = 230;
+                pokeB.Y = 220;
+            } else if (pokeB.src == pokeSrc[7]) {
+                pokeB.X = 230;
+                pokeB.Y = 50;
+            } else {
+                pokeB.X = 230;
+                pokeB.Y = 250;
+            }
+        }
+        //battle coordinates
+        else {
+            if (pokeB.src == pokeSrc[6]) {
+                pokeB.X = 570;
+                pokeB.Y = 560;
+            } else if (pokeB.src == pokeSrc[7]) {
+                pokeB.X = 500;
+                pokeB.Y = 390;
+            } else {
+                //charmander
+                pokeB.X = 570;
+                pokeB.Y = 590;
+            }
+        }
+
+        // 
+        //Squirtle + evos
+        //
+        pokeC.drag = false;
+        if (pokeC.battle == false) {
+            if (pokeC.src == pokeSrc[8]) {
+                pokeC.X = 380;
+                pokeC.Y = 230;
+            } else if (pokeC.src == pokeSrc[9]) {
+                pokeC.X = 380;
+                pokeC.Y = 155;
+            } else {
+                pokeC.X = 380;
+                pokeC.Y = 250;
+            }
+        }
+        //battle
+        else {
+            if (pokeC.src == pokeSrc[8]) {
+                pokeC.X = 550;
+                pokeC.Y = 570;
+            } else if (pokeC.src == pokeSrc[9]) {
+                pokeC.X = 440;
+                pokeC.Y = 495;
+            } else {
+                //bulbasaur
+                pokeC.X = 570;
+                pokeC.Y = 590;
+            }
+        }
+
+        //
+        //Pikachu + evos
+        //
+        pokeD.drag = false;
+        if (pokeD.battle == false) {
+            if (pokeD.src == pokeSrc[10]) {
+                pokeD.X = 530;
+                pokeD.Y = 180;
+            } else {
+                pokeD.X = 530;
+                pokeD.Y = 250;
+            }
+        }
+        //battle coordinates
+        else {
+            if (pokeD.src == pokeSrc[10]) {
+                pokeD.X = 550;
+                pokeD.Y = 520;
+            } else {
+                //Pikachu
+                pokeD.X = 570;
+                pokeD.Y = 590;
+            }
+        }
+
+    }
+
+
+    /*
+    IMAGE AND THEIR PROPERTIES SECTION
+    */
+
+    //coordinates still need to be changed through drawimage()\
+    //javascript image object
+    //pokemon as an image obj
+    var pokeA = new Image();
+    pokeA.X = 80;
+    pokeA.Y = 250;
+    pokeA.width = 60;
+    pokeA.height = 60;
+    pokeA.src = pokeSrc[0];
+    pokeA.drag = false;
+    pokeA.evolve = false;
+    pokeA.name = names[0];
+    pokeA.battle = false;
+    pokeA.lv = 1;
+    pokeA.exp = 0;
+
+    var pokeB = new Image();
+    pokeB.X = pokeA.X + 150;
+    pokeB.Y = 250;
+    pokeB.width = 60;
+    pokeB.height = 60;
+    pokeB.src = pokeSrc[1];
+    pokeB.drag = false;
+    pokeB.evolve = false;
+    pokeB.name = names[3];
+    pokeB.battle = false;
+    pokeB.lv = 1;
+    pokeB.exp = 0;
+
+    var pokeC = new Image();
+    pokeC.X = pokeB.X + 150;
+    pokeC.Y = 250;
+    pokeC.width = 60;
+    pokeC.height = 60;
+    pokeC.src = pokeSrc[2];
+    pokeC.drag = false;
+    pokeC.evolve = false;
+    pokeC.name = names[6];
+    pokeC.battle = false;
+    pokeC.lv = 1;
+    pokeC.exp = 0;
+
+    var pokeD = new Image();
+    pokeD.X = pokeC.X + 150;
+    pokeD.Y = 250;
+    pokeD.width = 65;
+    pokeD.height = 60;
+    pokeD.src = pokeSrc[3];
+    pokeD.drag = false;
+    pokeD.evolve = false;
+    pokeD.name = names[9];
+    pokeD.battle = false;
+    pokeD.lv = 1;
+    pokeD.exp = 0;
+
+    /*
+    STONES AS IMAGE OBJ
+    */
+    var stoneA = new Image();
+    stoneA.width = 40;
+    stoneA.height = 40;
+    stoneA.X = canvas.width - stoneA.width - 10;
+    stoneA.Y = 150;
+    stoneA.src = stoneSrc[0];
+    stoneA.drag = false;
+
+    var stoneB = new Image();
+    stoneB.width = 40;
+    stoneB.height = 40;
+    stoneB.X = stoneA.X;
+    stoneB.Y = stoneA.Y + 60;
+    stoneB.src = stoneSrc[1];
+    stoneB.drag = false;
+
+    var stoneC = new Image();
+    stoneC.width = 40;
+    stoneC.height = 40;
+    stoneC.X = stoneB.X;
+    stoneC.Y = stoneB.Y + 60;
+    stoneC.src = stoneSrc[2];
+    stoneC.drag = false;
+
+    var stoneD = new Image();
+    stoneD.width = 40;
+    stoneD.height = 40;
+    stoneD.X = stoneC.X;
+    stoneD.Y = stoneC.Y + 60;
+    stoneD.src = stoneSrc[3];
+    stoneD.drag = false;
+
+    /*
+    ENEMY POKEMON
+    */
+    var badPoke = new Image();
+    badPoke.X = 150;
+    badPoke.Y = 700;
+    badPoke.src = badSrc[0];
+
+    /*
+    BACKGROUNDS IMAGE OBJ
+    */
+
+    var homebg = new Image();
+    homebg.src = bgSrc[0];
+
+    var battlebg = new Image();
+    battlebg.src = bgSrc[1];
+
+    /*
+    Combat
+    */
+
+    //Super simple combat calculator
+    function combat(pokemon) {
+        pokemon.exp += Math.floor((Math.random() * 4) + 1);
+        pokemon.battle = false;
+        
+        //picknew sprite
+        var swag = Math.floor((Math.random() * badCount)+1);
+        badPoke.src = badSrc[swag-1];
+    }
+
+    //simple level and exp condition
+    function levelCheck(pokemon) {
+         var totalLv = pokeA.lv+ pokeB.lv + pokeC.lv + pokeD.lv;
+         
+        //level up everytime exp exceeds said level
+        if (pokemon.exp >= pokemon.lv * 20) {
+            pokemon.lv++;
+        }
+        
+        //
+        //UPDATE ENEMY SPRITE ARRAY
+        //
+        
+        if (totalLv >= 20){
+        
+        badSrc.push('https://www.dropbox.com/s/w513bmafpl5hquw/enemy2.gif?dl=1');
+        //badSrc.push('imgs/enemy2.gif');
+        badCount=1;
+        
+        }
+        else if (totalLv >= 60){
+        
+        badSrc.push('https://www.dropbox.com/s/vuayoliz6z395yf/enemy3.gif?dl=1');
+        //badSrc.push('imgs/enemy3.gif');
+        badCount=2;
+        
+        }
+        
+        else if (totalLv >= 80){
+        
+        badSrc.push('https://www.dropbox.com/s/krvj58wky04fwar/enemy4.gif?dl=1');
+        //badSrc.push('imgs/enemy4.gif');
+        badCount=3;
+        
+        }
+        
+    }
+
+
+    //
+    //IMPORTANT SECTION
+    //UPDATE()
+    //DRAW()
+    //
+
+    function update() {
+        
+        //determine if battling
+        //dragged into bottom half
+        if (pokeA.Y > canvas.height / 2 && (pokeB.battle == false && pokeC.battle == false && pokeD.battle == false)) {
+            pokeA.battle = true;
+            if (fite == true) {
+                combat(pokeA);
+                levelCheck(pokeA);
+            }
+        } else {
+            pokeA.battle = false;
+        }
+
+        if (pokeB.Y > canvas.height / 2 && (pokeA.battle == false && pokeC.battle == false && pokeD.battle == false)) {
+            pokeB.battle = true;
+            if (fite == true) {
+                combat(pokeB);
+                levelCheck(pokeB);
+            }
+        } else {
+            pokeB.battle = false;
+        }
+
+        if (pokeC.Y > canvas.height / 2 && (pokeB.battle == false && pokeA.battle == false && pokeD.battle == false)) {
+            pokeC.battle = true;
+            if (fite == true) {
+                combat(pokeC);
+                levelCheck(pokeC);
+            }
+        } else {
+            pokeC.battle = false;
+        }
+
+        if (pokeD.Y > canvas.height / 2 && (pokeB.battle == false && pokeC.battle == false && pokeA.battle == false)) {
+            pokeD.battle = true;
+            if (fite == true) {
+                combat(pokeD);
+                levelCheck(pokeD);
+            }
+        } else {
+            pokeD.battle = false;
+        }
+
+        //Pokemon name updates
+        //bulbasaur
+        if (pokeA.src == pokeSrc[4]) {
+            pokeA.name = names[1];
+        } else if (pokeA.src == pokeSrc[5]) {
+            pokeA.name = names[2];
+        }
+
+        //charmander
+        if (pokeB.src == pokeSrc[6]) {
+            pokeB.name = names[4];
+        } else if (pokeB.src == pokeSrc[7]) {
+            pokeB.name = names[5];
+        }
+
+        //squirtle
+        if (pokeC.src == pokeSrc[8]) {
+            pokeC.name = names[7];
+        } else if (pokeC.src == pokeSrc[9]) {
+            pokeC.name = names[8];
+        }
+
+        //pikachu
+        if (pokeD.src == pokeSrc[10]) {
+            pokeD.name = names[10];
+        }
+
+    }
+
+    function draw() {
+        canvas.width = canvas.width;
+
+        //backgrounds   		  
+        context.drawImage(homebg, 0, 0, canvas.width, canvas.height / 2);
+        context.drawImage(battlebg, 0, 400, canvas.width, 400);
+
+        //player pokemon
+        context.drawImage(pokeA, pokeA.X, pokeA.Y, pokeA.width, pokeA.height);
+        context.drawImage(pokeB, pokeB.X, pokeB.Y, pokeB.width, pokeB.height);
+        context.drawImage(pokeC, pokeC.X, pokeC.Y, pokeC.width, pokeC.height);
+        context.drawImage(pokeD, pokeD.X, pokeD.Y, pokeD.width, pokeD.height);
+
+        //enemy pokemon
+        context.drawImage(badPoke, badPoke.X, badPoke.Y-badPoke.height/2);
+
+        //stones
+        context.drawImage(stoneA, stoneA.X, stoneA.Y, stoneA.width, stoneA.height);
+        context.drawImage(stoneB, stoneB.X, stoneB.Y, stoneB.width, stoneB.height);
+        context.drawImage(stoneC, stoneC.X, stoneC.Y, stoneC.width, stoneC.height);
+        context.drawImage(stoneD, stoneD.X, stoneD.Y, stoneD.width, stoneD.height);
+
+
+        //text stuff
+        context.font = "10pt Verdana";
+        context.fillStyle = 'white';
+
+        //info
+        context.fillText(inst1, 100, 390);
+        context.fillText(inst2, 90, 420);
+
+        //names
+        context.fillText(pokeA.name, pokeA.X + pokeA.width / 8, pokeA.Y + pokeA.height + 20); //bulbasaur
+        context.fillText(pokeB.name, pokeB.X + pokeA.width / 8, pokeB.Y + pokeB.height + 20); //charmander
+        context.fillText(pokeC.name, pokeC.X + pokeA.width / 8, pokeC.Y + pokeC.height + 20); //squirtle
+        context.fillText(pokeD.name, pokeD.X + pokeA.width / 8, pokeD.Y + pokeD.height + 20); //pikachu
+
+        //levels
+        context.fillText("Lv: " + pokeA.lv, pokeA.X + pokeA.width / 5, pokeA.Y + pokeA.height + 35);
+        context.fillText("Lv: " + pokeB.lv, pokeB.X + pokeB.width / 5, pokeB.Y + pokeB.height + 35);
+        context.fillText("Lv: " + pokeC.lv, pokeC.X + pokeC.width / 5, pokeC.Y + pokeC.height + 35);
+        context.fillText("Lv: " + pokeD.lv, pokeD.X + pokeD.width / 8, pokeD.Y + pokeD.height + 35);
+
+        //exp
+        context.fillText("Exp: " + pokeA.exp, pokeA.X + pokeA.width / 5, pokeA.Y + pokeA.height + 50);
+        context.fillText("Exp: " + pokeB.exp, pokeB.X + pokeB.width / 5, pokeB.Y + pokeB.height + 50);
+        context.fillText("Exp: " + pokeC.exp, pokeC.X + pokeC.width / 5, pokeC.Y + pokeC.height + 50);
+        context.fillText("Exp: " + pokeD.exp, pokeD.X + pokeD.width / 8, pokeD.Y + pokeD.height + 50);
+    }
+
+    function game_loop() {
+        update();
+        draw();
+    }
+
+    setInterval(game_loop, 30); //call the game loop every set of intervals
+        
+    </script>
+
+</html>

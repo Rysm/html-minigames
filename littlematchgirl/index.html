@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+
+<body onload="initGame('canvas');"> 
+<canvas id='game' width='500' height='500'></canvas>
+</body>
+
+<script>
+var canvas = document.getElementById('game');
+var context = canvas.getContext('2d');
+var particles = new Array();
+var bumps = new Array();
+var health = 40;
+var jumping = false;
+var yVel = 0;
+var gravity = 1.2;
+var xVel = 3;
+var moveLeft, moveRight;
+var dead = false;
+var text1 = "Her little hands were almost numbed with cold.";
+var text2 = "Oh! a match might afford her a world of comfort...";
+
+
+//player object
+player = new Image();
+player.X = 20;
+player.Y = canvas.height-110;
+player.src = 'https://www.dropbox.com/s/lfu51dhc4lliyg5/girl.png?dl=1';
+
+match = new Image();
+match.X = canvas.width;
+match.Y = canvas.height - 78;
+match.src = 'https://www.dropbox.com/s/u3fubwcbxhkoeag/match.png?dl=1';
+
+//key listener
+document.addEventListener( "keydown", handleKeyDown, false);
+document.addEventListener("keyup", handleKeyUp, false);
+
+function handleKeyDown(e) {
+    switch (e.keyCode) {
+        case 87:  // W
+            jump();
+            break;
+        case 65:  // A
+			moveLeft = true;
+            break;
+        case 68:  // D
+            moveRight = true;
+            break;
+    }
+}
+
+function handleKeyUp(e) {
+    switch (e.keyCode) {
+        case 65:  // A
+            moveLeft = false;
+            break;
+        case 68:  // D
+            moveRight = false;
+            break;
+    }
+}
+
+function jump() {
+    if (jumping == false) {
+        yVel = -15;
+        jumping = true;
+    }
+}
+
+
+//snow particle system
+function Particle(x, y, speed, lifetime, radius) {
+    this.x = x;
+    this.y = y;
+    this.speed = speed;
+    this.lifetime = lifetime;
+    this.radius = radius;
+}
+
+//bumpstacles
+function bump(num){
+	 for (var i = 0; i < num; i++) {
+        bumps.push(new Particle(canvas.width, 451, Math.random()*2+1, canvas.width, Math.random() * 30 + 10));
+    }
+}
+
+//snow
+function snow(num) {
+    for (var i = 0; i < num; i++) {
+        particles.push(new Particle(Math.random() * canvas.width, 500, Math.random() * 3 + 2, canvas.height, Math.random() * 5 + 2));
+    }
+}
+
+bump(3);
+snow(70);
+
+// main game update and draw functions section
+function update() {
+
+	//check for loss
+	if(health<=0){
+		dead=true;
+	}
+
+    //falling snow
+    for (var i = 0; i < particles.length; i++) {
+        var particle = particles[i];
+        particle.y += particle.speed;
+        //reset
+        if (particle.y >= canvas.height) {
+            particle.x = Math.random() * canvas.width + 100;
+			particle.y = 0;
+        }
+        particle.x -= 5 * Math.random();
+        particle.y += particle.radius * 0.3;
+    }
+	
+	if (dead==false){
+		//bumps
+		for (var i = 0; i < bumps.length; i++) {
+			var bump = bumps[i];
+			bump.x -= bump.speed;
+			//reset
+			if (bump.x <= 0) {
+				bump.x = canvas.width + 100;
+			}
+		}
+
+		//match
+		match.X -= bump.speed*1.2;
+		if (match.X <= 0) {
+			   match.X = canvas.width;
+		}
+
+
+		//movement
+		if (moveLeft) {
+			player.X -= xVel;
+		} 
+
+		else if (moveRight) {
+			player.X += xVel;
+		}
+		if (jumping) {
+			yVel += gravity;
+			player.Y += yVel;
+
+			if (player.Y > canvas.height-110) {
+				player.Y = canvas.height-110;
+				yVel = 0;
+				jumping = false;
+			}
+
+		}
+
+		//collisions
+		//pick up match
+		if (player.X < match.X + match.width && player.X + player.width > match.X && player.Y < match.Y + match.height && player.Y + player.height > match.Y) {
+			if (health < 40){
+				health+=10;
+			}
+			match.X = canvas.width;
+		}
+
+		//bumps
+		for(var i = 0; i < bumps.length;i++){
+			if (player.X < bumps[i].x + bumps[i].radius && player.X + player.width > bumps[i].x && player.Y < bumps[i].y + bumps[i].radius && player.Y + player.height > bumps[i].y) {
+				if (health > 0){
+					health-=8;
+				}
+				bumps[i].x = -20;
+			}
+		}
+	}
+}
+
+function draw() {
+	
+	//clears
+    canvas.width = canvas.width;
+	
+	//background
+    context.fillStyle = 'grey';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+	
+	//ground
+	context.fillStyle = 'EBF2F5';
+	context.fillRect(0, canvas.height-50, canvas.width, 50);
+	
+	if (dead==false){
+		//make the obstacles
+		for (var i = 0; i < bumps.length; i++) {
+			var bump = bumps[i];
+			context.fillStyle = '#A5F2F3';
+			context.beginPath();
+			context.arc(bump.x, bump.y, bump.radius, 0, Math.PI, true);
+			context.fill();
+		}
+	}
+	
+	//make the snow
+    for (var i = 0; i < particles.length; i++) {
+        var particle = particles[i];
+        context.beginPath();
+		context.fillStyle = 'white';
+        context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2, false);
+        context.fill();
+    }
+	
+	//health - light
+	context.beginPath();
+	context.fillStyle = 'FFFDC4';
+	context.arc(player.X+player.width/2, player.Y+player.height/2, health, 0, Math.PI * 2, false);
+	context.fill();
+	
+	//text stuff
+    context.font = "10pt Verdana";
+    context.fillStyle = 'white';
+    context.fillText(text1, 100, 100);
+	context.fillText(text2, 100, 120);
+	
+	if (dead==false){
+		//player
+		context.drawImage(player, player.X, player.Y);
+		//match
+		context.drawImage(match, match.X, match.Y);
+	}
+	if (dead==true){
+		//text
+		text1 = "But in the corner, at the cold hour of dawn,";
+		text2 = "sat the poor girl.";
+	}
+}
+
+function game_loop() {
+    update();
+    draw();
+}
+
+setInterval(game_loop, 30);
+
+
+
+</script>    
+</html>
